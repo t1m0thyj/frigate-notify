@@ -73,6 +73,12 @@ frigate:
 alerts:  
   # General config applies to all alert methods below
   general:
+    # Minimum seconds between alerts from any camera (Default: 0, disabled)
+    cooldown:
+    # Additional per-camera cooldowns in seconds; both cooldowns must elapse
+    # Camera names must match Frigate configuration; omitted cameras default to 0
+    camera_cooldown:
+      # doorbell: 30
     # Title for any alert messages (Default: Frigate Alert)
     # Supports template variables
     title:

@@ -175,6 +175,14 @@ All alert providers (Discord, Gotify, etc) also support optional filters & the a
 
 ### General
 
+- **cooldown** (Optional - Default: `0`)
+    - Env: `FN_ALERTS__GENERAL__COOLDOWN`
+    - Minimum seconds between notifications from any camera. Must be a non-negative integer; `0` disables the global cooldown.
+- **camera_cooldown** (Optional - Default: `{}`)
+    - Env example: `FN_ALERTS__GENERAL__CAMERA_COOLDOWN__DOORBELL=30`
+    - Map Frigate camera names to cooldowns in seconds (non-negative integers)
+    - Omitted cameras and values of `0` have no camera-specific cooldown
+    - Both the global and camera cooldowns must elapse before another notification is sent
 - **title** (Optional - Default: `Frigate Alert`)
     - Env: `FN_ALERTS__GENERAL__TITLE`
     - Title of alert messages that are generated (Email subject, etc)
@@ -242,6 +250,9 @@ All alert providers (Discord, Gotify, etc) also support optional filters & the a
 alerts:
   general:
     title: Frigate Alert
+    cooldown: 10
+    camera_cooldown:
+      doorbell: 30
     timeformat: Mon, 02 Jan 2006 15:04:05 MST
     nosnap:
     snap_bbox:

@@ -37,6 +37,8 @@ frigate:
 
 alerts:  
   general:
+    cooldown:
+    camera_cooldown:
     title:
     timeformat:
     nosnap:
