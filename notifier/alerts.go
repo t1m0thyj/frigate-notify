@@ -30,6 +30,15 @@ type notifMeta struct {
 
 // SendAlert forwards alert information to all enabled alerting methods.
 func SendAlert(events []models.Event) {
+	sendAlert(events, false)
+}
+
+// SendTestAlert sends a manual test through provider filters without consuming a cooldown.
+func SendTestAlert(events []models.Event) {
+	sendAlert(events, true)
+}
+
+func sendAlert(events []models.Event, bypassCooldown bool) {
 	if len(events) == 0 {
 		return
 	}
@@ -50,7 +59,7 @@ func SendAlert(events []models.Event) {
 
 	// Reserve once for the entire alert, including all detections in a review.
 	// Event, review, and audio-only notifications all pass through this gate.
-	if !notificationCooldown.allow(events[0].Camera, config.ConfigData.Alerts.General) {
+	if !bypassCooldown && !notificationCooldown.allow(events[0].Camera, config.ConfigData.Alerts.General) {
 		log.Info().Str("camera", events[0].Camera).Msg("Notification dropped - Cooldown active")
 		return
 	}
