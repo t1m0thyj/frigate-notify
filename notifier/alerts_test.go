@@ -2,14 +2,80 @@ package notifier
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/0x2142/frigate-notify/config"
 	"github.com/0x2142/frigate-notify/models"
 )
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func TestSendAlertFiltersAfterSnapshot(t *testing.T) {
+	originalConfig := config.ConfigData
+	originalLast := config.Internal.Status.LastNotification
+	originalWebhookStatus := config.Internal.Status.Notifications.Webhook
+	originalTransport := http.DefaultTransport
+	t.Cleanup(func() {
+		config.ConfigData = originalConfig
+		config.Internal.Status.LastNotification = originalLast
+		config.Internal.Status.Notifications.Webhook = originalWebhookStatus
+		http.DefaultTransport = originalTransport
+		notificationCooldown = cooldownTracker{}
+	})
+	config.ConfigData = config.Config{
+		Frigate: models.Frigate{Server: "http://frigate.test"},
+		Alerts: models.Alerts{
+			General: models.General{Cooldown: 60, MaxSnapRetry: 1},
+			Webhook: []models.Webhook{{
+				AlertCommon: models.AlertCommon{Enabled: true},
+				Server:      "http://webhook.test", Method: "POST",
+			}},
+		},
+	}
+	config.Internal.Status.Notifications.Webhook = make([]models.NotifierStatus, 1)
+	config.Internal.Status.LastNotification = time.Time{}
+	notificationCooldown = cooldownTracker{}
+	snapshotFetched := false
+	sent := make(chan struct{}, 1)
+	http.DefaultTransport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if strings.HasSuffix(r.URL.Path, "/snapshot.jpg") {
+			snapshotFetched = true
+			// Activate provider quiet hours during the fetch, without waiting for a clock boundary.
+			now := time.Now()
+			config.ConfigData.Alerts.Webhook[0].Filters.Quiet = models.Quiet{
+				Start: now.Add(-time.Minute).Format("15:04"),
+				End:   now.Add(time.Minute).Format("15:04"),
+			}
+		} else {
+			sent <- struct{}{}
+		}
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("snapshot")), Header: make(http.Header)}, nil
+	})
+	SendAlert([]models.Event{{Camera: "doorbell", ID: "quiet-test", HasSnapshot: true}})
+	if !snapshotFetched {
+		t.Fatal("snapshot was not fetched")
+	}
+	if !config.Internal.Status.LastNotification.IsZero() {
+		// Wait for the unexpected sender to capture its configuration before cleanup.
+		select {
+		case <-sent:
+		case <-time.After(5 * time.Second):
+		}
+		t.Fatal("notification dispatched despite quiet hours starting during snapshot retrieval")
+	}
+	if !notificationCooldown.lastGlobal.IsZero() {
+		t.Fatal("provider-filtered alert must not consume a cooldown")
+	}
+}
 
 func TestSendTestAlertCooldown(t *testing.T) {
 	for _, active := range []bool{false, true} {

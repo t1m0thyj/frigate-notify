@@ -42,12 +42,6 @@ func sendAlert(events []models.Event, bypassCooldown bool) {
 	if len(events) == 0 {
 		return
 	}
-	// Only alerts with at least one eligible destination can consume a cooldown.
-	senders := eligibleAlertSenders(events)
-	if len(senders) == 0 {
-		return
-	}
-
 	// Collect snapshot, if available.
 	var snapshot io.Reader
 	for _, event := range events {
@@ -55,6 +49,12 @@ func sendAlert(events []models.Event, bypassCooldown bool) {
 			snapshot = GetSnapshot(event)
 			break
 		}
+	}
+
+	// Only alerts with at least one eligible destination can consume a cooldown.
+	senders := eligibleAlertSenders(events)
+	if len(senders) == 0 {
+		return
 	}
 
 	// Reserve once for the entire alert, including all detections in a review.
