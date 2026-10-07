@@ -37,8 +37,6 @@ frigate:
 
 alerts:  
   general:
-    cooldown:
-    camera_cooldown:
     title:
     timeformat:
     nosnap:
@@ -49,6 +47,8 @@ alerts:
     max_snap_retry:
     notify_once:
     notify_detections:
+    cooldown:
+    camera_cooldown:
     recheck_delay:
     audio_only:
 
